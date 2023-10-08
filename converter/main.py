@@ -3,14 +3,15 @@ from __future__ import annotations  # postpone type hint evaluation or doctest f
 import json
 import os
 import sys
+import gzip
 from typing import List, Optional
 
 import click
 from google.protobuf import json_format
 
-from . import mjxproto
-from .mjlog_decoder import MjlogDecoder
-from .mjlog_encoder import MjlogEncoder
+import mjxproto
+from mjlog_decoder import MjlogDecoder
+from mjlog_encoder import MjlogEncoder
 
 
 @click.group(help="A CLI tool of mjx")
@@ -247,9 +248,9 @@ def convert(
 
             # 読み込み（全てのフォーマットで、１ファイル１半荘を想定）
             transformed_lines: List[str] = []
-            with open(path_from, "r") as f:
-                for line in f:
-                    line = line.strip().strip("\n")
+            with gzip.open(path_from, 'rb') as f:
+                for line in f.readlines():
+                    line = line.decode().strip().strip("\n")
                     if len(line) == 0:
                         continue
 
@@ -266,7 +267,12 @@ def convert(
             list_lines: List[List[str]] = buffer.get(get_all=True)
             assert len(list_lines) == 1, "Each file should have one game"
             assert converter is not None
-            transformed_lines += converter.convert(list_lines[0])
+
+            try:
+                transformed_lines += converter.convert(list_lines[0])
+            except Exception as e:
+                print(e)
+                continue
 
             # 書き込み
             with open(path_to, "w") as f:
